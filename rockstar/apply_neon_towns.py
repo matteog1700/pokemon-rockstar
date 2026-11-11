@@ -13,7 +13,7 @@ import re
 # map id, musician town name, neon scene, collectible hint, NPC to repurpose,
 # quest input item, one-time reward, neon hue, palette tileset
 TOWNS = [
- ("LittlerootTown", "PEEP ROCKSTAR", "BLACK ROSE SKY", "A midnight radio is calling.", "LittlerootTown_EventScript_Boy", "POKE_BALL", "PP_UP", 0.92, "petalburg"),
+ ("LittlerootTown", "LIL PEEP TOWN", "BLACK ROSE SKY", "A midnight radio is calling.", "LittlerootTown_EventScript_Boy", "POKE_BALL", "PP_UP", 0.92, "petalburg"),
  ("OldaleTown", "OZZY CITY", "VIOLET RIOT", "The iron bells sing at dawn.", "OldaleTown_EventScript_Girl", "GREAT_BALL", "NUGGET", 0.81, "petalburg"),
  ("PetalburgCity", "BOWIE GROVE", "ELECTRIC FOREST", "Starlight moves through trees.", "PetalburgCity_EventScript_Gentleman", "ANTIDOTE", "LEAF_STONE", 0.48, "petalburg"),
  ("RustboroCity", "COBAIN CITY", "CYBERPUNK STREETS", "An alley hides a broken chord.", "RustboroCity_EventScript_Woman", "ESCAPE_ROPE", "MAX_REVIVE", 0.79, "rustboro"),
@@ -199,7 +199,8 @@ def apply(engine:Path):
     # Fix the opening to match the actual renamed home town.
     opener=maps/"LittlerootTown"/"scripts.inc"
     st=opener.read_text()
-    st=st.replace("MOM: Welcome to ROCKSTAR TOWN!", "MOM: Welcome to PEEP ROCKSTAR!")
+    st=st.replace("MOM: Welcome to ROCKSTAR TOWN!", "MOM: Welcome to LIL PEEP TOWN!")
+    st=st.replace("ROCKSTAR TOWN", "LIL PEEP TOWN")
     opener.write_text(st)
     print("Twelve musician region names, town signs, 12 one-time item-fetch Neon Note missions, and neon architecture palettes: "+", ".join(n for _,n,_ in notes))
 
