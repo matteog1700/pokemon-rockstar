@@ -164,6 +164,40 @@ def apply_gothic_npcs(engine: Path) -> None:
                 changed += 1
     print(f"Applied gothic black, silver-chain and violet NPC palette theme: {changed} changed files.")
 
+
+
+def apply_pink_rain(engine: Path) -> None:
+    """Tint Emerald's original rain palette and soften the rain effect.
+
+    Emerald's rain weather uses PALTAG_WEATHER and its own looping rain sound
+    effect; this continues below ordinary town music without external tracks.
+    """
+    palette = engine / "graphics" / "weather" / "fog.pal"
+    effects = engine / "src" / "field_weather_effect.c"
+    if not palette.is_file() or not effects.is_file():
+        raise RuntimeError("Emerald weather graphics/source missing")
+    lines = palette.read_text().splitlines()
+    if lines[:3] != ["JASC-PAL", "0100", "16"] or len(lines) != 19:
+        raise RuntimeError("Unexpected weather palette layout")
+    lines[3:7] = [
+        "0 0 0",          # transparent / black
+        "246 123 180",    # delicate neon pink drizzle
+        "115 32 82",      # deep rose rain shadow
+        "24 8 24",        # almost-black raindrop shadow
+    ]
+    palette.write_text("\n".join(lines) + "\n")
+    source = effects.read_text()
+    old = "    gWeatherPtr->targetRainSpriteCount = 10;"
+    new = "    gWeatherPtr->targetRainSpriteCount = 6; // Soft Rockstar drizzle"
+    if old in source:
+        source = source.replace(old, new, 1)
+    elif new not in source:
+        raise RuntimeError("Expected upstream light-rain count not found")
+    if "SetRainStrengthFromSoundEffect(SE_RAIN);" not in source:
+        raise RuntimeError("Expected Emerald rain ambience hook missing")
+    effects.write_text(source)
+    print("Applied pink-and-black light drizzle with built-in rain ambience under map music.")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("engine", type=Path)
@@ -171,3 +205,4 @@ if __name__ == "__main__":
     apply(engine)
     apply_story(engine)
     apply_gothic_npcs(engine)
+    apply_pink_rain(engine)
