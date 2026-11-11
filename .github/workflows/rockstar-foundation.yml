@@ -36,7 +36,7 @@ jobs:
       - name: Apply Rockstar starter-inventory gameplay changes
         run: |
           python3 -m unittest discover -s project/rockstar -p 'test_*.py' -v
-          python3 -m py_compile project/rockstar/apply_gameplay.py project/rockstar/apply_intro.py project/rockstar/apply_title.py project/rockstar/apply_ozzy_neon.py project/rockstar/apply_madness.py project/rockstar/apply_neon_towns.py project/rockstar/apply_ev_editor.py
+          python3 -m py_compile project/rockstar/apply_gameplay.py project/rockstar/apply_intro.py project/rockstar/apply_title.py project/rockstar/apply_ozzy_neon.py project/rockstar/apply_madness.py project/rockstar/apply_neon_towns.py project/rockstar/apply_ev_editor.py project/rockstar/apply_character_choice.py
           python3 project/rockstar/apply_gameplay.py engine
           python3 project/rockstar/apply_intro.py engine
           python3 project/rockstar/apply_title.py engine
@@ -45,6 +45,7 @@ jobs:
           python3 project/rockstar/remix_12_towns.py engine --seed 1700
           python3 project/rockstar/apply_neon_towns.py engine
           python3 project/rockstar/apply_ev_editor.py engine
+          python3 project/rockstar/apply_character_choice.py engine
           grep -q '246 123 180' engine/graphics/weather/fog.pal
           grep -q 'LIL PEEP TOWN' engine/data/maps/LittlerootTown/scripts.inc
           grep -q 'POKEMON ROCKSTAR STARTER SUPPLIES' engine/src/new_game.c
@@ -58,6 +59,9 @@ jobs:
           grep -q 'ROCKSTAR EV IV EDITOR V1' engine/src/pokemon_summary_screen.c
           grep -q 'RockstarNote12_EventScript' engine/data/maps/EverGrandeCity/scripts.inc
           grep -q 'LIL PEEP TOWN' engine/src/data/region_map/region_map_sections.json
+          grep -q 'sRockstarLilPeep' engine/src/main_menu.c
+          grep -q 'sRockstarTooPoor' engine/src/main_menu.c
+          grep -q 'Who will be our ROCKSTAR' engine/data/text/birch_speech.inc
           test -s engine/sound/songs/midi/mus_intro.mid
           test -s engine/sound/songs/midi/mus_title.mid
 
@@ -114,6 +118,6 @@ jobs:
       - name: Upload Rockstar custom title and soundtrack GBA prototype
         uses: actions/upload-artifact@v4
         with:
-          name: PoKeMoN-RoCkStAr-Neon-Towns-EV-Editor-GBA
+          name: PoKeMoN-RoCkStAr-LilPeep-TooPoor-Choice-GBA
           path: 'engine/Pokemon Rockstar.gba'
           if-no-files-found: error
