@@ -46,7 +46,7 @@ jobs:
           python3 project/rockstar/apply_neon_towns.py engine
           python3 project/rockstar/apply_ev_editor.py engine
           grep -q '246 123 180' engine/graphics/weather/fog.pal
-          grep -q 'ROCKSTAR TOWN' engine/data/maps/LittlerootTown/scripts.inc
+          grep -q 'LIL PEEP TOWN' engine/data/maps/LittlerootTown/scripts.inc
           grep -q 'POKEMON ROCKSTAR STARTER SUPPLIES' engine/src/new_game.c
           grep -q 'Task_RockstarGothicMovie' engine/src/intro.c
           grep -q 'CB2_RockstarTitle' engine/src/title_screen.c
@@ -57,7 +57,7 @@ jobs:
           grep -q 'fell.*MADNESS' engine/src/battle_message.c
           grep -q 'ROCKSTAR EV IV EDITOR V1' engine/src/pokemon_summary_screen.c
           grep -q 'RockstarNote12_EventScript' engine/data/maps/EverGrandeCity/scripts.inc
-          grep -q 'PEEP ROCKSTAR' engine/src/data/region_map/region_map_sections.json
+          grep -q 'LIL PEEP TOWN' engine/src/data/region_map/region_map_sections.json
           test -s engine/sound/songs/midi/mus_intro.mid
           test -s engine/sound/songs/midi/mus_title.mid
 
