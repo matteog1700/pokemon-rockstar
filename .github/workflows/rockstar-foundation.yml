@@ -36,13 +36,15 @@ jobs:
       - name: Apply Rockstar starter-inventory gameplay changes
         run: |
           python3 -m unittest discover -s project/rockstar -p 'test_*.py' -v
-          python3 -m py_compile project/rockstar/apply_gameplay.py project/rockstar/apply_intro.py project/rockstar/apply_title.py project/rockstar/apply_ozzy_neon.py project/rockstar/apply_madness.py
+          python3 -m py_compile project/rockstar/apply_gameplay.py project/rockstar/apply_intro.py project/rockstar/apply_title.py project/rockstar/apply_ozzy_neon.py project/rockstar/apply_madness.py project/rockstar/apply_neon_towns.py project/rockstar/apply_ev_editor.py
           python3 project/rockstar/apply_gameplay.py engine
           python3 project/rockstar/apply_intro.py engine
           python3 project/rockstar/apply_title.py engine
           python3 project/rockstar/apply_ozzy_neon.py engine
           python3 project/rockstar/apply_madness.py engine
           python3 project/rockstar/remix_12_towns.py engine --seed 1700
+          python3 project/rockstar/apply_neon_towns.py engine
+          python3 project/rockstar/apply_ev_editor.py engine
           grep -q '246 123 180' engine/graphics/weather/fog.pal
           grep -q 'ROCKSTAR TOWN' engine/data/maps/LittlerootTown/scripts.inc
           grep -q 'POKEMON ROCKSTAR STARTER SUPPLIES' engine/src/new_game.c
@@ -53,6 +55,9 @@ jobs:
           grep -q 'SPECIES_RAYQUAZA' engine/src/main_menu.c
           grep -q 'ROCKSTAR MADNESS STATUS V1' engine/src/battle_script_commands.c
           grep -q 'fell.*MADNESS' engine/src/battle_message.c
+          grep -q 'ROCKSTAR EV IV EDITOR V1' engine/src/pokemon_summary_screen.c
+          grep -q 'RockstarNote12_EventScript' engine/data/maps/EverGrandeCity/scripts.inc
+          grep -q 'PEEP ROCKSTAR' engine/src/data/region_map/region_map_sections.json
           test -s engine/sound/songs/midi/mus_intro.mid
           test -s engine/sound/songs/midi/mus_title.mid
 
@@ -109,6 +114,6 @@ jobs:
       - name: Upload Rockstar custom title and soundtrack GBA prototype
         uses: actions/upload-artifact@v4
         with:
-          name: PoKeMoN-RoCkStAr-Madness-V1-GBA
+          name: PoKeMoN-RoCkStAr-Neon-Towns-EV-Editor-GBA
           path: 'engine/Pokemon Rockstar.gba'
           if-no-files-found: error
