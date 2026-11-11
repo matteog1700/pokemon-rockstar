@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""Fast local contract tests for the Rockstar source patcher."""
+import importlib.util
+import tempfile
+import unittest
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+spec = importlib.util.spec_from_file_location("rockstar_patches", HERE / "apply_gameplay.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+
+class RockstarPatchesTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.engine = Path(self.tmp.name)
+        (self.engine / "src").mkdir()
+        (self.engine / "include" / "constants").mkdir(parents=True)
+        (self.engine / "data" / "maps" / "LittlerootTown").mkdir(parents=True)
+        header = "\n".join(f"ITEM_{name}," for name in (*module.BALL_ITEMS, "RARE_CANDY"))
+        (self.engine / "include" / "constants" / "items.h").write_text(header)
+        (self.engine / "src" / "new_game.c").write_text(
+            "void NewGameInitData(void) {\n    ClearBag();\n    NewGameInitPCItems();\n}\n"
+        )
+        (self.engine / "data" / "maps" / "LittlerootTown" / "scripts.inc").write_text(
+            "LittlerootTown_Text_OurNewHomeLetsGoInside:\n"
+            '    .string "Original introduction.$"\n'
+            "LittlerootTown_Text_WaitPlayer:\n"
+            '    .string "Wait!$"\n'
+            "LittlerootTown_Text_TownSign:\n"
+            '    .string "LITTLEROOT TOWN$"\n'
+            "LittlerootTown_Text_ProfBirchsLab:\n"
+            '    .string "The lab.$"\n'
+        )
+
+    def test_supplies_and_story_are_idempotent(self):
+        for _ in range(2):
+            module.apply(self.engine)
+            module.apply_story(self.engine)
+        code = (self.engine / "src" / "new_game.c").read_text()
+        story = (self.engine / "data" / "maps" / "LittlerootTown" / "scripts.inc").read_text()
+        self.assertEqual(code.count("AddBagItem(ITEM_RARE_CANDY, 999);"), 1)
+        for name in module.BALL_ITEMS:
+            self.assertEqual(code.count(f"AddBagItem(ITEM_{name}, 99);"), 1)
+        self.assertEqual(story.count("MOM: Welcome to ROCKSTAR TOWN!"), 1)
+        self.assertEqual(story.count("The neon heart of a new legend."), 1)
+        self.assertIn("LittlerootTown_Text_ProfBirchsLab:", story)
+
+    def test_unexpected_upstream_source_refused(self):
+        (self.engine / "src" / "new_game.c").write_text("unrelated source")
+        with self.assertRaises(RuntimeError):
+            module.apply(self.engine)
+
+
+if __name__ == "__main__":
+    unittest.main()
