@@ -84,8 +84,31 @@ def apply_story(engine: Path) -> None:
     .string "The neon heart of a new legend.$"
 '''
     updated = updated[:a] + sign + updated[b:]
+
+    # Rework the two free-roaming NPCs into early story witnesses.
+    start_npc = "LittlerootTown_Text_CanUsePCToStoreItems:"
+    end_npc = "LittlerootTown_Text_IfYouGoInGrassPokemonWillJumpOut:"
+    if updated.count(start_npc) != 1 or updated.count(end_npc) != 1:
+        raise RuntimeError("Rockstar Town NPC dialogue labels differ from upstream")
+    a = updated.index(start_npc)
+    b = updated.index(end_npc, a)
+    witnesses = r'''LittlerootTown_Text_CanUsePCToStoreItems:
+    .string "The streetlights flickered again\l"
+    .string "last night. That signal is back!\p"
+    .string "My POKéMON won't go near the\l"
+    .string "old radio tower.$"
+
+LittlerootTown_Text_BirchSpendsDaysInLab:
+    .string "PROF. BIRCH has been tracking\l"
+    .string "strange POKéMON cries at night.\p"
+    .string "They say the sound is coming\l"
+    .string "from beyond ROCKSTAR TOWN.$"
+
+'''
+    updated = updated[:a] + witnesses + updated[b:]
+
     source.write_text(updated)
-    print("Applied Rockstar Town opening and town sign dialogues.")
+    print("Applied Rockstar Town opening, sign and two NPC story hints.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
