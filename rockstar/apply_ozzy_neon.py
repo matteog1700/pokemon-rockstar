@@ -85,7 +85,7 @@ gText_Birch_SoItsPlayer::
 
 gText_Birch_YourePlayer::
     .string "Ah, {PLAYER}!\p"
-    .string "You're moving to ROCKSTAR TOWN,\l"
+    .string "You're moving to LIL PEEP TOWN,\l"
     .string "where the first note awaits!\p"
     .string "$"
 
