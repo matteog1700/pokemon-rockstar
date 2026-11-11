@@ -102,6 +102,16 @@ jobs:
           elif new not in s:
               raise SystemExit("Cannot locate original character-choice menu")
 
+          # Ozzy Osbourne is the professor in the introduction, not Birch.
+          intro = speech.read_text()
+          old_name = 'My name is BIRCH.'
+          new_name = 'I am OZZY OSBOURNE.'
+          if old_name in intro:
+              intro = intro.replace(old_name, new_name, 1)
+          elif new_name not in intro:
+              raise SystemExit("Could not locate professor's introduction name")
+          speech.write_text(intro)
+          assert new_name in speech.read_text()
           assert 'LIL PEEP or TOO POOR?' in speech.read_text()
           assert '{sRockstarLilPeep, {NULL}}' in menu.read_text()
           assert '{sRockstarTooPoor, {NULL}}' in menu.read_text()
