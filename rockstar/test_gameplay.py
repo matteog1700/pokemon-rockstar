@@ -33,6 +33,12 @@ class RockstarPatchesTest(unittest.TestCase):
             '    .string "LITTLEROOT TOWN$"\n'
             "LittlerootTown_Text_ProfBirchsLab:\n"
             '    .string "The lab.$"\n'
+            "LittlerootTown_Text_CanUsePCToStoreItems:\n"
+            '    .string "The power of science is staggering!$"\n'
+            "LittlerootTown_Text_BirchSpendsDaysInLab:\n"
+            '    .string "Professor Birch studies Pokemon.$"\n'
+            "LittlerootTown_Text_IfYouGoInGrassPokemonWillJumpOut:\n"
+            '    .string "Wild Pokemon may jump out.$"\n'
         )
 
     def test_supplies_and_story_are_idempotent(self):
@@ -47,6 +53,8 @@ class RockstarPatchesTest(unittest.TestCase):
         self.assertEqual(story.count("MOM: Welcome to ROCKSTAR TOWN!"), 1)
         self.assertEqual(story.count("The neon heart of a new legend."), 1)
         self.assertIn("LittlerootTown_Text_ProfBirchsLab:", story)
+        self.assertEqual(story.count("The streetlights flickered again"), 1)
+        self.assertEqual(story.count("PROF. BIRCH has been tracking"), 1)
 
     def test_unexpected_upstream_source_refused(self):
         (self.engine / "src" / "new_game.c").write_text("unrelated source")
