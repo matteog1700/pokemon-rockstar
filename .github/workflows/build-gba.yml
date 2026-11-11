@@ -39,13 +39,13 @@ jobs:
             mkdir -p .source-archive .source-extracted
             echo "No checked-in Emerald source found. Looking for the source ZIP on a GitHub Release."
             if [[ -n "$RELEASE_TAG" ]]; then
-              gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern 'Pokemon_Rockstar_Source_REUPLOAD_2026-11-11.zip' --dir .source-archive || {
-                echo "::error::Attach Pokemon_Rockstar_Source_REUPLOAD_2026-11-11.zip to this release before publishing it."
+              gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern 'Pokemon_Rockstar_Source_Character_Intro_Patched.zip' --dir .source-archive || {
+                echo "::error::Attach Pokemon_Rockstar_Source_Character_Intro_Patched.zip to this release before publishing it."
                 exit 1
               }
             else
-              gh release download --repo "$GITHUB_REPOSITORY" --pattern 'Pokemon_Rockstar_Source_REUPLOAD_2026-11-11.zip' --dir .source-archive || {
-                echo "::error::No release source archive found. Create a GitHub Release and attach Pokemon_Rockstar_Source_REUPLOAD_2026-11-11.zip."
+              gh release download --repo "$GITHUB_REPOSITORY" --pattern 'Pokemon_Rockstar_Source_Character_Intro_Patched.zip' --dir .source-archive || {
+                echo "::error::No release source archive found. Create a GitHub Release and attach Pokemon_Rockstar_Source_Character_Intro_Patched.zip."
                 exit 1
               }
             fi
@@ -53,7 +53,7 @@ jobs:
           from pathlib import Path
           from zipfile import ZipFile
 
-          source = Path(".source-archive/Pokemon_Rockstar_Source_REUPLOAD_2026-11-11.zip")
+          source = Path(".source-archive/Pokemon_Rockstar_Source_Character_Intro_Patched.zip")
           with ZipFile(source) as archive:
               for entry in archive.infolist():
                   path = Path(entry.filename)
