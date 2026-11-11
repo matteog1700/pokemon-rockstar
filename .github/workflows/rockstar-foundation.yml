@@ -1,0 +1,65 @@
+name: Pokemon Rockstar GBA foundation
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/rockstar-foundation.yml'
+      - 'rockstar/**'
+  push:
+    branches:
+      - feature/emerald-gba-foundation
+    paths:
+      - '.github/workflows/rockstar-foundation.yml'
+      - 'rockstar/**'
+
+permissions:
+  contents: read
+
+jobs:
+  foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Check out Rockstar project
+        uses: actions/checkout@v4
+        with:
+          path: project
+
+      - name: Check out public Emerald decompilation
+        uses: actions/checkout@v4
+        with:
+          repository: pret/pokeemerald
+          ref: 731ad5bfd6e6f265508d0efcca0ba42f9dcf5881
+          path: engine
+          persist-credentials: false
+
+      - name: Install build prerequisites
+        run: |
+          sudo apt-get -o Acquire::Retries=5 update
+          sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends \
+            build-essential binutils-arm-none-eabi gcc-arm-none-eabi libpng-dev make python3
+          arm-none-eabi-gcc --version
+
+      - name: Verify source layout
+        run: |
+          test -f engine/Makefile
+          test -f engine/INSTALL.md
+          test -f project/rockstar/PROJECT_STATUS.md
+          echo "Verified public upstream Emerald source; custom Rockstar graphics are not integrated."
+
+      - name: Build modern toolchain baseline
+        working-directory: engine
+        run: make -j2 MODERN=1 COMPARE=0
+
+      - name: Verify a nonempty GBA image
+        run: |
+          test -s engine/pokeemerald_modern.gba
+          file engine/pokeemerald_modern.gba
+          sha256sum engine/pokeemerald_modern.gba
+
+      - name: Upload baseline artifact (not Rockstar finished game)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Emerald-Foundation-Baseline-GBA
+          path: engine/pokeemerald_modern.gba
+          if-no-files-found: error
