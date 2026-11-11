@@ -72,6 +72,28 @@ jobs:
           echo "directory=$dir" >> "$GITHUB_OUTPUT"
           echo "Source found: $dir"
 
+      - name: Apply verified Rockstar introduction text
+        working-directory: ${{ steps.source.outputs.directory }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("data/text/birch_speech.inc")
+          if not p.exists():
+              raise SystemExit("Missing Birch introduction text source")
+          s = p.read_text()
+          old = 'gText_Birch_BoyOrGirl::\\n\\t.string "Are you a boy?\\\\n"\\n\\t.string "Or are you a girl?$"'
+          new = 'gText_Birch_BoyOrGirl::\\n\\t.string "LIL PEEP or TOO POOR?$"'
+          if old in s:
+              p.write_text(s.replace(old, new, 1))
+              print("Applied Lil Peep / Too Poor selection text")
+          elif new in s:
+              print("Selection text already present")
+          else:
+              raise SystemExit("Selection text format changed; refusing unsafe replacement")
+          PY
+
       - name: Install ARM build tools
         shell: bash
         run: |
