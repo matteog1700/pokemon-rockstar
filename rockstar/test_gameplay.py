@@ -20,6 +20,14 @@ class RockstarPatchesTest(unittest.TestCase):
         (self.engine / "graphics" / "object_events" / "palettes").mkdir(parents=True)
         (self.engine / "include" / "constants").mkdir(parents=True)
         (self.engine / "data" / "maps" / "LittlerootTown").mkdir(parents=True)
+        (self.engine / "graphics" / "weather").mkdir(parents=True)
+        (self.engine / "graphics" / "weather" / "fog.pal").write_text(
+            "JASC-PAL\n0100\n16\n" + "0 0 0\n" * 16
+        )
+        (self.engine / "src" / "field_weather_effect.c").write_text(
+            "    gWeatherPtr->targetRainSpriteCount = 10;\n"
+            "    SetRainStrengthFromSoundEffect(SE_RAIN);\n"
+        )
         header = "\n".join(f"ITEM_{name}," for name in (*module.BALL_ITEMS, "RARE_CANDY"))
         (self.engine / "include" / "constants" / "items.h").write_text(header)
 
@@ -56,6 +64,7 @@ class RockstarPatchesTest(unittest.TestCase):
             module.apply(self.engine)
             module.apply_story(self.engine)
             module.apply_gothic_npcs(self.engine)
+            module.apply_pink_rain(self.engine)
         code = (self.engine / "src" / "new_game.c").read_text()
         story = (self.engine / "data" / "maps" / "LittlerootTown" / "scripts.inc").read_text()
         self.assertEqual(code.count("AddBagItem(ITEM_RARE_CANDY, 999);"), 1)
@@ -68,6 +77,11 @@ class RockstarPatchesTest(unittest.TestCase):
         self.assertEqual(len(palette), 19)
         self.assertEqual(palette[3 + 7], "8 8 24")
         self.assertEqual(palette[3 + 11], "222 222 230")
+        weather_pal = (self.engine / "graphics" / "weather" / "fog.pal").read_text().splitlines()
+        self.assertEqual(weather_pal[4], "246 123 180")
+        rain_src = (self.engine / "src" / "field_weather_effect.c").read_text()
+        self.assertEqual(rain_src.count("targetRainSpriteCount = 6;"), 1)
+
 
         self.assertEqual(story.count("The streetlights flickered again"), 1)
         self.assertEqual(story.count("PROF. BIRCH has been tracking"), 1)
