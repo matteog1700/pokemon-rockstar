@@ -110,9 +110,64 @@ LittlerootTown_Text_BirchSpendsDaysInLab:
     source.write_text(updated)
     print("Applied Rockstar Town opening, sign and two NPC story hints.")
 
+
+# Shared human-NPC palettes in Emerald. Player, rival, Pokemon, and special
+# character palettes are left untouched so bespoke Rockstar sprites can follow.
+GOTHIC_COLORS = (
+    (115, 197, 164),  # transparent background; preserved on apply
+    (255, 213, 180),  # skin highlights; preserved on apply
+    (255, 197, 148),
+    (222, 148, 115),
+    (123, 65, 65),
+    (65, 65, 82),     # gothic cloth mid-tone / shadow
+    (32, 32, 49),     # jacket dark
+    (8, 8, 24),       # near-black
+    (180, 139, 213),  # neon violet trim
+    (115, 65, 156),   # violet shadow
+    (41, 16, 65),     # violet near-black
+    (222, 222, 230), # silver chain / hardware highlight
+    (148, 148, 164), # silver mid-tone
+    (65, 65, 82),    # hardware shadows
+    (255, 255, 255),
+    (0, 0, 0),
+)
+
+
+def apply_gothic_npcs(engine: Path) -> None:
+    """Palette pass for shared background NPCs; retains GBA 16-color format."""
+    directory = engine / "graphics" / "object_events" / "palettes"
+    if not directory.is_dir():
+        raise RuntimeError("NPC palette directory missing from Emerald source")
+    changed = 0
+    for num in range(1, 5):
+        for reflection in ("", "_reflection"):
+            path = directory / f"npc_{num}{reflection}.pal"
+            if not path.is_file():
+                raise RuntimeError(f"Missing expected NPC palette: {path.name}")
+            lines = path.read_text().splitlines()
+            if lines[:3] != ["JASC-PAL", "0100", "16"] or len(lines) != 19:
+                raise RuntimeError(f"Unexpected GBA palette: {path.name}")
+            original = [tuple(map(int, row.split())) for row in lines[3:]]
+            if len(original) != 16 or any(len(rgb) != 3 for rgb in original):
+                raise RuntimeError(f"Invalid NPC palette: {path.name}")
+            if reflection:
+                # Reflections remain tinted and dimmer to fit water lighting.
+                colors = list(original[:5]) + [
+                    tuple(min(255, int(value * 0.68 + (28 if idx == 2 else 5))) for idx, value in enumerate(rgb))
+                    for rgb in GOTHIC_COLORS[5:14]
+                ] + list(original[14:])
+            else:
+                colors = list(original[:5]) + list(GOTHIC_COLORS[5:14]) + list(original[14:])
+            data = "\n".join(lines[:3] + [f"{r} {g} {b}" for r, g, b in colors]) + "\n"
+            if path.read_text() != data:
+                path.write_text(data)
+                changed += 1
+    print(f"Applied gothic black, silver-chain and violet NPC palette theme: {changed} changed files.")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("engine", type=Path)
     engine = parser.parse_args().engine
     apply(engine)
     apply_story(engine)
+    apply_gothic_npcs(engine)
