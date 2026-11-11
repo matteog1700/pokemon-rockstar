@@ -44,7 +44,52 @@ def apply(engine: Path) -> None:
     print("Applied Rockstar new-game supplies: 999 Rare Candies and 99 of 12 Poke Ball kinds.")
 
 
+
+def apply_story(engine: Path) -> None:
+    """Introduce Rockstar Town and the region's mystery in actual GBA map dialogue."""
+    source = engine / "data" / "maps" / "LittlerootTown" / "scripts.inc"
+    if not source.is_file():
+        raise RuntimeError("Expected first-town script was not found")
+    original = source.read_text()
+    if "MOM: Welcome to ROCKSTAR TOWN!" in original:
+        print("Rockstar opening already applied")
+        return
+    start_label = "LittlerootTown_Text_OurNewHomeLetsGoInside:"
+    end_label = "LittlerootTown_Text_WaitPlayer:"
+    if original.count(start_label) != 1 or original.count(end_label) != 1:
+        raise RuntimeError("Opening dialogue labels differ from expected upstream")
+    start = original.index(start_label)
+    end = original.index(end_label, start)
+    introduction = r'''LittlerootTown_Text_OurNewHomeLetsGoInside:
+    .string "MOM: Welcome to ROCKSTAR TOWN!\p"
+    .string "Every night the streets glow\l"
+    .string "with pink and violet light.\p"
+    .string "People say a strange signal has\l"
+    .string "been waking legendary POKéMON.\p"
+    .string "Somewhere past the neon skyline,\l"
+    .string "a hidden story is waiting for you.\p"
+    .string "Come on, {PLAYER}!\l"
+    .string "Let's make this our new home.$"
+
+'''
+    updated = original[:start] + introduction + original[end:]
+    sign_start = 'LittlerootTown_Text_TownSign:\n'
+    sign_end = '\nLittlerootTown_Text_ProfBirchsLab:'
+    if updated.count(sign_start) != 1 or updated.count(sign_end) != 1:
+        raise RuntimeError("First town sign labels differ from expected upstream")
+    a = updated.index(sign_start)
+    b = updated.index(sign_end, a)
+    sign = r'''LittlerootTown_Text_TownSign:
+    .string "ROCKSTAR TOWN\l"
+    .string "The neon heart of a new legend.$"
+'''
+    updated = updated[:a] + sign + updated[b:]
+    source.write_text(updated)
+    print("Applied Rockstar Town opening and town sign dialogues.")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("engine", type=Path)
-    apply(parser.parse_args().engine)
+    engine = parser.parse_args().engine
+    apply(engine)
+    apply_story(engine)
