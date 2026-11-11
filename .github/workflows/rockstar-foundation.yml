@@ -36,15 +36,18 @@ jobs:
       - name: Apply Rockstar starter-inventory gameplay changes
         run: |
           python3 -m unittest discover -s project/rockstar -p 'test_*.py' -v
-          python3 -m py_compile project/rockstar/apply_gameplay.py project/rockstar/apply_intro.py
+          python3 -m py_compile project/rockstar/apply_gameplay.py project/rockstar/apply_intro.py project/rockstar/apply_title.py
           python3 project/rockstar/apply_gameplay.py engine
           python3 project/rockstar/apply_intro.py engine
+          python3 project/rockstar/apply_title.py engine
           python3 project/rockstar/remix_12_towns.py engine --seed 1700
           grep -q '246 123 180' engine/graphics/weather/fog.pal
           grep -q 'ROCKSTAR TOWN' engine/data/maps/LittlerootTown/scripts.inc
           grep -q 'POKEMON ROCKSTAR STARTER SUPPLIES' engine/src/new_game.c
           grep -q 'Task_RockstarGothicMovie' engine/src/intro.c
+          grep -q 'CB2_RockstarTitle' engine/src/title_screen.c
           test -s engine/sound/songs/midi/mus_intro.mid
+          test -s engine/sound/songs/midi/mus_title.mid
 
       - name: Fetch portable ARM compiler (no Ubuntu apt mirrors)
         run: |
@@ -96,9 +99,9 @@ jobs:
           file 'engine/Pokemon Rockstar.gba'
           sha256sum 'engine/Pokemon Rockstar.gba'
 
-      - name: Upload updated Rockstar gothic opening GBA prototype
+      - name: Upload Rockstar custom title and soundtrack GBA prototype
         uses: actions/upload-artifact@v4
         with:
-          name: Pokemon-Rockstar-Gothic-Intro-GBA
+          name: PoKeMoN-RoCkStAr-Custom-Title-GBA
           path: 'engine/Pokemon Rockstar.gba'
           if-no-files-found: error
