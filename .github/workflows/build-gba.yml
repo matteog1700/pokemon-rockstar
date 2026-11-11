@@ -1,47 +1,121 @@
-
 name: Build Pokemon Rockstar GBA
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
+  release:
+    types: [published]
+
+permissions:
+  contents: read
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
 
     steps:
-      - name: Check out source
+      - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Install ARM compiler
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi make git python3
-          arm-none-eabi-gcc --version
-
-      - name: Locate game source
+      - name: Locate or download game source
         id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        shell: bash
         run: |
-          if [ -f src/Makefile ]; then
-            echo "directory=src" >> "$GITHUB_OUTPUT"
-          elif [ -f Makefile ]; then
-            echo "directory=." >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          if [[ -f game/Makefile ]]; then
+            dir="game"
+          elif [[ -f Makefile && -f config.mk ]]; then
+            dir="."
           else
-            echo "Upload Emerald Expansion source first"
-            exit 1
+            mkdir -p .source-archive .source-extracted
+            echo "No checked-in Emerald source found. Looking for the source ZIP on a GitHub Release."
+            if [[ -n "$RELEASE_TAG" ]]; then
+              gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern 'Pokemon_Rockstar_Source_REUPLOAD_2026-11-11.zip' --dir .source-archive || {
+                echo "::error::Attach Pokemon_Rockstar_Source_REUPLOAD_2026-11-11.zip to this release before publishing it."
+                exit 1
+              }
+            else
+              gh release download --repo "$GITHUB_REPOSITORY" --pattern 'Pokemon_Rockstar_Source_REUPLOAD_2026-11-11.zip' --dir .source-archive || {
+                echo "::error::No release source archive found. Create a GitHub Release and attach Pokemon_Rockstar_Source_REUPLOAD_2026-11-11.zip."
+                exit 1
+              }
+            fi
+            python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          source = Path(".source-archive/Pokemon_Rockstar_Source_REUPLOAD_2026-11-11.zip")
+          with ZipFile(source) as archive:
+              for entry in archive.infolist():
+                  path = Path(entry.filename)
+                  if path.is_absolute() or ".." in path.parts:
+                      raise ValueError(f"Unsafe archive path: {entry.filename}")
+              archive.extractall(".source-extracted")
+          PY
+            if [[ -f .source-extracted/pokeemerald-expansion-master/Makefile ]]; then
+              mv .source-extracted/pokeemerald-expansion-master game
+              dir="game"
+            elif [[ -f .source-extracted/Makefile ]]; then
+              mv .source-extracted game
+              dir="game"
+            else
+              echo "::error::Source ZIP does not contain a recognized Emerald Expansion Makefile."
+              exit 1
+            fi
           fi
+          test -f "$dir/Makefile" || { echo "::error::Missing Makefile"; exit 1; }
+          test -f "$dir/config.mk" || { echo "::error::Missing config.mk"; exit 1; }
+          test -d "$dir/graphics" || { echo "::error::Missing game graphics source"; exit 1; }
+          echo "directory=$dir" >> "$GITHUB_OUTPUT"
+          echo "Source found: $dir"
 
-      - name: Compile GBA
+      - name: Install ARM build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
+            build-essential binutils-arm-none-eabi gcc-arm-none-eabi libnewlib-arm-none-eabi \
+            libpng-dev python3 make git
+          arm-none-eabi-gcc --version
+          arm-none-eabi-ld --version | head -n 1
+
+      - name: Compile Pokemon Emerald Expansion
         working-directory: ${{ steps.source.outputs.directory }}
-        run: make -j2
+        shell: bash
+        run: |
+          set -euo pipefail
+          make -j2
 
-      - name: Upload GBA
+      - name: Verify compiled GBA ROM
+        working-directory: ${{ steps.source.outputs.directory }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rom = Path("pokeemerald.gba")
+          if not rom.is_file():
+              raise SystemExit("Build did not produce pokeemerald.gba")
+          size = rom.stat().st_size
+          if not (1024 * 1024 <= size <= 32 * 1024 * 1024):
+              raise SystemExit(f"Unexpected GBA ROM size: {size} bytes")
+          with rom.open("rb") as file:
+              header = file.read(0xC0)
+          if header[0xB2] != 0x96:
+              raise SystemExit("Invalid GBA fixed-header byte (offset 0xB2)")
+          print(f"Compiled GBA ROM found: {size:,} bytes, header check passed")
+          PY
+          sha256sum pokeemerald.gba
+
+      - name: Upload compiled GBA (only on success)
         uses: actions/upload-artifact@v4
         with:
           name: Pokemon-Rockstar-GBA
-          path: '**/*.gba'
+          path: ${{ steps.source.outputs.directory }}/pokeemerald.gba
           if-no-files-found: error
-          
+          retention-days: 7
