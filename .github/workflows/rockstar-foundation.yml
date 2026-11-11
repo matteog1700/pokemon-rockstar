@@ -39,6 +39,7 @@ jobs:
 
       - name: Apply Rockstar starter-inventory gameplay changes
         run: |
+          python3 -m unittest discover -s project/rockstar -p 'test_*.py' -v
           python3 -m py_compile project/rockstar/apply_gameplay.py
           python3 project/rockstar/apply_gameplay.py engine
           grep -q 'ROCKSTAR TOWN' engine/data/maps/LittlerootTown/scripts.inc
