@@ -46,7 +46,6 @@ static void RockstarPutRect(s16 x, s16 y, s16 w, s16 h, u16 color)
 
 static void RockstarPutText(s16 x, s16 y, u8 scale, const char *message, u16 color)
 {
-    s16 start = x;
     u8 col, row, dx, dy;
     while (*message)
     {
@@ -63,10 +62,17 @@ static void RockstarPutText(s16 x, s16 y, u8 scale, const char *message, u16 col
                 if ((sRockstarFont[letter - 'A'][col] & (1 << row)) != 0)
                     for (dx = 0; dx < scale; dx++)
                         for (dy = 0; dy < scale; dy++)
-                            RockstarPutRect(x + col * scale + dx, y + row * scale + dy, 1, 1, color);
+                        {
+                            s16 px = x + col * scale + dx;
+                            s16 py = y + row * scale + dy;
+                            /* One-pixel black relief, purple halo, then lit foreground. */
+                            RockstarPutRect(px + 2, py + 2, 1, 1, RGB(0, 0, 2));
+                            RockstarPutRect(px - 1, py - 1, 1, 1, RGB(8, 2, 11));
+                            RockstarPutRect(px, py, 1, 1, color);
+                        }
         x += 6 * scale;
         if (x > 240 - 5 * scale)
-            x = start;  /* Avoid writing past video memory on malformed text. */
+            break; /* Avoid wrapping into another character line. */
     }
 }
 
@@ -131,8 +137,8 @@ static void RockstarPaintScene(u8 scene)
     if (scene == 0)
     {
         RockstarPutRect(12, 49, 218, 2, RGB(27, 4, 21));
-        RockstarPutText(78, 12, 2, "POKEMON", RGB(22, 14, 29));
-        RockstarPutText(24, 61, 4, "ROCKSTAR", RGB(31, 6, 21));
+        RockstarPutText(78, 12, 2, "POKEMON", RGB(25, 18, 30));
+        RockstarPutText(47, 62, 3, "ROCKSTAR", RGB(31, 10, 24));
         RockstarPutText(56, 110, 1, "THE SIGNAL AWAKENS", RGB(21, 20, 29));
     }
     else if (scene == 1)
@@ -145,8 +151,8 @@ static void RockstarPaintScene(u8 scene)
     else
     {
         RockstarPutRect(10, 47, 220, 2, RGB(26, 6, 26));
-        RockstarPutText(78, 14, 2, "POKEMON", RGB(24, 12, 31));
-        RockstarPutText(24, 57, 4, "ROCKSTAR", RGB(31, 7, 22));
+        RockstarPutText(78, 14, 2, "POKEMON", RGB(27, 18, 31));
+        RockstarPutText(47, 60, 3, "ROCKSTAR", RGB(31, 11, 25));
         RockstarPutText(48, 112, 1, "YOUR LEGEND BEGINS", RGB(18, 27, 29));
     }
 }
