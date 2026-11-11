@@ -72,26 +72,37 @@ jobs:
           echo "directory=$dir" >> "$GITHUB_OUTPUT"
           echo "Source found: $dir"
 
-      - name: Apply verified Rockstar introduction text
+      - name: Integrate Rockstar choice into actual game source
         working-directory: ${{ steps.source.outputs.directory }}
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          p = Path("data/text/birch_speech.inc")
-          if not p.exists():
-              raise SystemExit("Missing Birch introduction text source")
-          s = p.read_text()
-          old = 'gText_Birch_BoyOrGirl::\\n\\t.string "Are you a boy?\\\\n"\\n\\t.string "Or are you a girl?$"'
-          new = 'gText_Birch_BoyOrGirl::\\n\\t.string "LIL PEEP or TOO POOR?$"'
+          import re
+
+          speech = Path("data/text/birch_speech.inc")
+          menu = Path("src/main_menu.c")
+          for p in (speech, menu):
+              if not p.is_file():
+                  raise SystemExit(f"Required game source missing: {p}")
+          s = speech.read_text()
+          pattern = r'(gText_Birch_BoyOrGirl::\\s*\\n)(?:[ \\t]*\\.string[^\\n]*\\n){2}'
+          replacement = 'gText_Birch_BoyOrGirl::\\n\\t.string "Choose your ROCKSTAR:\\\\n"\\n\\t.string "LIL PEEP or TOO POOR?$"\\n'
+          updated, count = re.subn(pattern, lambda _: replacement, s, count=1)
+          if count != 1 and 'LIL PEEP or TOO POOR?' not in s:
+              raise SystemExit("Cannot locate Birch selection prompt; inspect upstream source")
+          speech.write_text(updated if count else s)
+
+          s = menu.read_text()
+          old = 'static const struct MenuAction sMenuActions_Gender[] = {\\n    {gText_Boy, {NULL}},\\n    {gText_Girl, {NULL}}\\n};'
+          new = 'static const u8 sRockstarLilPeep[] = _("LIL PEEP");\\nstatic const u8 sRockstarTooPoor[] = _("TOO POOR");\\n\\nstatic const struct MenuAction sMenuActions_Gender[] = {\\n    {sRockstarLilPeep, {NULL}},\\n    {sRockstarTooPoor, {NULL}}\\n};'
           if old in s:
-              p.write_text(s.replace(old, new, 1))
-              print("Applied Lil Peep / Too Poor selection text")
-          elif new in s:
-              print("Selection text already present")
-          else:
-              raise SystemExit("Selection text format changed; refusing unsafe replacement")
+              s = s.replace(old, new, 1)
+          elif new not in s:
+              raise SystemExit("Cannot locate character-choice menu; inspect upstream source")
+          menu.write_text(s)
+          print("Character selection prompt and actual two-item menu patched in game source")
           PY
 
       - name: Install ARM build tools
