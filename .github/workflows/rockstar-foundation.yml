@@ -12,6 +12,10 @@ on:
       - '.github/workflows/rockstar-foundation.yml'
       - 'rockstar/**'
 
+concurrency:
+  group: rockstar-build-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -35,7 +39,9 @@ jobs:
 
       - name: Apply Rockstar starter-inventory gameplay changes
         run: |
+          python3 -m py_compile project/rockstar/apply_gameplay.py
           python3 project/rockstar/apply_gameplay.py engine
+          grep -q 'ROCKSTAR TOWN' engine/data/maps/LittlerootTown/scripts.inc
           grep -q 'POKEMON ROCKSTAR STARTER SUPPLIES' engine/src/new_game.c
 
       - name: Install build prerequisites
