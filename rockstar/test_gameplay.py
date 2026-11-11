@@ -17,10 +17,20 @@ class RockstarPatchesTest(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.engine = Path(self.tmp.name)
         (self.engine / "src").mkdir()
+        (self.engine / "graphics" / "object_events" / "palettes").mkdir(parents=True)
         (self.engine / "include" / "constants").mkdir(parents=True)
         (self.engine / "data" / "maps" / "LittlerootTown").mkdir(parents=True)
         header = "\n".join(f"ITEM_{name}," for name in (*module.BALL_ITEMS, "RARE_CANDY"))
         (self.engine / "include" / "constants" / "items.h").write_text(header)
+
+        palette_dir = self.engine / "graphics" / "object_events" / "palettes"
+        palette = "JASC-PAL\n0100\n16\n" + "\n".join(
+            f"{i * 11 % 255} {i * 9 % 255} {i * 7 % 255}" for i in range(16)
+        ) + "\n"
+        for i in range(1, 5):
+            for suffix in ("", "_reflection"):
+                (palette_dir / f"npc_{i}{suffix}.pal").write_text(palette)
+
         (self.engine / "src" / "new_game.c").write_text(
             "void NewGameInitData(void) {\n    ClearBag();\n    NewGameInitPCItems();\n}\n"
         )
@@ -45,6 +55,7 @@ class RockstarPatchesTest(unittest.TestCase):
         for _ in range(2):
             module.apply(self.engine)
             module.apply_story(self.engine)
+            module.apply_gothic_npcs(self.engine)
         code = (self.engine / "src" / "new_game.c").read_text()
         story = (self.engine / "data" / "maps" / "LittlerootTown" / "scripts.inc").read_text()
         self.assertEqual(code.count("AddBagItem(ITEM_RARE_CANDY, 999);"), 1)
@@ -53,6 +64,11 @@ class RockstarPatchesTest(unittest.TestCase):
         self.assertEqual(story.count("MOM: Welcome to ROCKSTAR TOWN!"), 1)
         self.assertEqual(story.count("The neon heart of a new legend."), 1)
         self.assertIn("LittlerootTown_Text_ProfBirchsLab:", story)
+        palette = (self.engine / "graphics" / "object_events" / "palettes" / "npc_1.pal").read_text().splitlines()
+        self.assertEqual(len(palette), 19)
+        self.assertEqual(palette[3 + 7], "8 8 24")
+        self.assertEqual(palette[3 + 11], "222 222 230")
+
         self.assertEqual(story.count("The streetlights flickered again"), 1)
         self.assertEqual(story.count("PROF. BIRCH has been tracking"), 1)
 
