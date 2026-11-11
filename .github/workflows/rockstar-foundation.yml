@@ -33,6 +33,11 @@ jobs:
           path: engine
           persist-credentials: false
 
+      - name: Apply Rockstar starter-inventory gameplay changes
+        run: |
+          python3 project/rockstar/apply_gameplay.py engine
+          grep -q 'POKEMON ROCKSTAR STARTER SUPPLIES' engine/src/new_game.c
+
       - name: Install build prerequisites
         run: |
           sudo apt-get -o Acquire::Retries=5 update
@@ -57,9 +62,9 @@ jobs:
           file engine/pokeemerald_modern.gba
           sha256sum engine/pokeemerald_modern.gba
 
-      - name: Upload baseline artifact (not Rockstar finished game)
+      - name: Upload gameplay prototype artifact (not finished Rockstar game)
         uses: actions/upload-artifact@v4
         with:
-          name: Emerald-Foundation-Baseline-GBA
+          name: Rockstar-Gameplay-Prototype-GBA
           path: engine/pokeemerald_modern.gba
           if-no-files-found: error
