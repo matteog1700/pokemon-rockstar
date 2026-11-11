@@ -38,6 +38,8 @@ jobs:
           python3 -m unittest discover -s project/rockstar -p 'test_*.py' -v
           python3 -m py_compile project/rockstar/apply_gameplay.py
           python3 project/rockstar/apply_gameplay.py engine
+          python3 project/rockstar/remix_12_towns.py engine --seed 1700
+          grep -q '246 123 180' engine/graphics/weather/fog.pal
           grep -q 'ROCKSTAR TOWN' engine/data/maps/LittlerootTown/scripts.inc
           grep -q 'POKEMON ROCKSTAR STARTER SUPPLIES' engine/src/new_game.c
 
@@ -78,7 +80,10 @@ jobs:
 
       - name: Compile patched Rockstar prototype
         working-directory: engine
-        run: make -j2 MODERN=1 COMPARE=0
+        run: |
+          # A statically linked libpng requires libm for floor/pow in the native tools.
+          sed -i 's/^LIBS = -lpng -lz$/LIBS = -lpng -lz -lm/' tools/gbagfx/Makefile tools/rsfont/Makefile
+          make -j2 MODERN=1 COMPARE=0
 
       - name: Verify a nonempty GBA image
         run: |
