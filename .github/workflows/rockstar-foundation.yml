@@ -1,0 +1,123 @@
+name: Pokemon Rockstar GBA compilation
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/emerald-gba-foundation
+    paths:
+      - '.github/workflows/rockstar-foundation.yml'
+      - 'rockstar/**'
+
+concurrency:
+  group: rockstar-build-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Check out Rockstar project
+        uses: actions/checkout@v4
+        with:
+          path: project
+
+      - name: Check out public Emerald decompilation
+        uses: actions/checkout@v4
+        with:
+          repository: pret/pokeemerald
+          ref: 731ad5bfd6e6f265508d0efcca0ba42f9dcf5881
+          path: engine
+          persist-credentials: false
+
+      - name: Apply Rockstar starter-inventory gameplay changes
+        run: |
+          python3 -m unittest discover -s project/rockstar -p 'test_*.py' -v
+          python3 -m py_compile project/rockstar/apply_gameplay.py project/rockstar/apply_intro.py project/rockstar/apply_title.py project/rockstar/apply_ozzy_neon.py project/rockstar/apply_madness.py project/rockstar/apply_neon_towns.py project/rockstar/apply_ev_editor.py project/rockstar/apply_character_choice.py
+          python3 project/rockstar/apply_gameplay.py engine
+          python3 project/rockstar/apply_intro.py engine
+          python3 project/rockstar/apply_title.py engine
+          python3 project/rockstar/apply_ozzy_neon.py engine
+          python3 project/rockstar/apply_madness.py engine
+          python3 project/rockstar/remix_12_towns.py engine --seed 1700
+          python3 project/rockstar/apply_neon_towns.py engine
+          python3 project/rockstar/apply_ev_editor.py engine
+          python3 project/rockstar/apply_character_choice.py engine
+          grep -q '246 123 180' engine/graphics/weather/fog.pal
+          grep -q 'LIL PEEP TOWN' engine/data/maps/LittlerootTown/scripts.inc
+          grep -q 'POKEMON ROCKSTAR STARTER SUPPLIES' engine/src/new_game.c
+          grep -q 'Task_RockstarGothicMovie' engine/src/intro.c
+          grep -q 'CB2_RockstarTitle' engine/src/title_screen.c
+          grep -q 'RockstarKaleidoJewels' engine/src/intro.c
+          grep -q 'PROF. OZZY' engine/data/text/birch_speech.inc
+          grep -q 'SPECIES_RAYQUAZA' engine/src/main_menu.c
+          grep -q 'ROCKSTAR MADNESS STATUS V1' engine/src/battle_script_commands.c
+          grep -q 'fell.*MADNESS' engine/src/battle_message.c
+          grep -q 'ROCKSTAR EV IV EDITOR V1' engine/src/pokemon_summary_screen.c
+          grep -q 'RockstarNote12_EventScript' engine/data/maps/EverGrandeCity/scripts.inc
+          grep -q 'LIL PEEP TOWN' engine/src/data/region_map/region_map_sections.json
+          grep -q 'sRockstarLilPeep' engine/src/main_menu.c
+          grep -q 'sRockstarTooPoor' engine/src/main_menu.c
+          grep -q 'Who will be our ROCKSTAR' engine/data/text/birch_speech.inc
+          test -s engine/sound/songs/midi/mus_intro.mid
+          test -s engine/sound/songs/midi/mus_title.mid
+
+      - name: Fetch portable ARM compiler (no Ubuntu apt mirrors)
+        run: |
+          set -euxo pipefail
+          VERSION=12.3.1-1.2
+          NAME=xpack-arm-none-eabi-gcc-${VERSION}-linux-x64.tar.gz
+          BASE=https://github.com/xpack-dev-tools/arm-none-eabi-gcc-xpack/releases/download/v${VERSION}
+          curl --fail --location --retry 3 --connect-timeout 20 --max-time 450 -o /tmp/rockstar-arm.tar.gz "$BASE/$NAME"
+          tar -xzf /tmp/rockstar-arm.tar.gz -C /tmp
+          echo "/tmp/xpack-arm-none-eabi-gcc-${VERSION}/bin" >> "$GITHUB_PATH"
+          /tmp/xpack-arm-none-eabi-gcc-${VERSION}/bin/arm-none-eabi-gcc --version
+
+      - name: Checkout libpng from GitHub (no Ubuntu apt mirrors)
+        uses: actions/checkout@v4
+        with:
+          repository: libpng/libpng
+          ref: 43b7f9ad5e86e6dce2a4a6ec9d661ff8d35cc159
+          path: third_party/libpng
+          persist-credentials: false
+
+      - name: Compile native PNG library
+        run: |
+          set -euxo pipefail
+          cmake -S third_party/libpng -B /tmp/rockstar-libpng-build -DCMAKE_INSTALL_PREFIX=/tmp/rockstar-libpng -DPNG_SHARED=OFF -DPNG_STATIC=ON -DPNG_TESTS=OFF -DPNG_EXECUTABLES=OFF
+          cmake --build /tmp/rockstar-libpng-build -j 2
+          cmake --install /tmp/rockstar-libpng-build
+          echo "PKG_CONFIG_PATH=/tmp/rockstar-libpng/lib/pkgconfig:/tmp/rockstar-libpng/lib64/pkgconfig" >> "$GITHUB_ENV"
+          echo "LIBRARY_PATH=/tmp/rockstar-libpng/lib:/tmp/rockstar-libpng/lib64" >> "$GITHUB_ENV"
+          test -f /tmp/rockstar-libpng/include/png.h
+      - name: Verify source layout
+        run: |
+          test -f engine/Makefile
+          test -f engine/INSTALL.md
+          test -f project/rockstar/PROJECT_STATUS.md
+          echo "Verified pinned Emerald source; bespoke player sprites and fully redesigned towns remain planned."
+
+      - name: Compile patched Rockstar prototype
+        working-directory: engine
+        run: |
+          # A statically linked libpng requires libm for floor/pow in the native tools.
+          sed -i 's/^LIBS = -lpng -lz$/LIBS = -lpng -lz -lm/' tools/gbagfx/Makefile tools/rsfont/Makefile
+          make -j2 MODERN=1 COMPARE=0
+
+      - name: Verify a nonempty GBA image
+        run: |
+          test -s engine/pokeemerald_modern.gba
+          cp engine/pokeemerald_modern.gba 'engine/Pokemon Rockstar.gba'
+          test -s 'engine/Pokemon Rockstar.gba'
+          file 'engine/Pokemon Rockstar.gba'
+          sha256sum 'engine/Pokemon Rockstar.gba'
+
+      - name: Upload Rockstar custom title and soundtrack GBA prototype
+        uses: actions/upload-artifact@v4
+        with:
+          name: PoKeMoN-RoCkStAr-LilPeep-TooPoor-Choice-GBA
+          path: 'engine/Pokemon Rockstar.gba'
+          if-no-files-found: error
