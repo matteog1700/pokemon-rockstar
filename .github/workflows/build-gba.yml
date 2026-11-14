@@ -2,6 +2,10 @@ name: Build Pokemon Rockstar GBA
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-gba.yml'
   release:
     types: [published]
 
@@ -9,7 +13,28 @@ permissions:
   contents: read
 
 jobs:
+  verify-compiler:
+    name: Verify portable ARM compiler
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Install portable ARM compiler (no apt mirror needed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=12.3.1-1.2
+          NAME=xpack-arm-none-eabi-gcc-${VERSION}-linux-x64.tar.gz
+          BASE=https://github.com/xpack-dev-tools/arm-none-eabi-gcc-xpack/releases/download/v${VERSION}
+          curl --fail --location --retry 3 --connect-timeout 20 --max-time 450 \
+            -o /tmp/rockstar-arm.tar.gz "$BASE/$NAME"
+          tar -xzf /tmp/rockstar-arm.tar.gz -C /tmp
+          echo "/tmp/xpack-arm-none-eabi-gcc-${VERSION}/bin" >> "$GITHUB_PATH"
+          /tmp/xpack-arm-none-eabi-gcc-${VERSION}/bin/arm-none-eabi-gcc --version
+          /tmp/xpack-arm-none-eabi-gcc-${VERSION}/bin/arm-none-eabi-ld --version | head -n 1
+
   build:
+    if: github.event_name != 'push'
+    needs: verify-compiler
     runs-on: ubuntu-24.04
     timeout-minutes: 40
 
@@ -124,16 +149,26 @@ jobs:
           print("Verified in-game Rockstar character-choice source integration")
           PY
 
-      - name: Install ARM build tools
+      - name: Install portable ARM compiler (no apt mirror needed)
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get -o Acquire::Retries=3 update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
-            build-essential binutils-arm-none-eabi gcc-arm-none-eabi libnewlib-arm-none-eabi \
-            libpng-dev python3 make git
-          arm-none-eabi-gcc --version
-          arm-none-eabi-ld --version | head -n 1
+          VERSION=12.3.1-1.2
+          NAME=xpack-arm-none-eabi-gcc-${VERSION}-linux-x64.tar.gz
+          BASE=https://github.com/xpack-dev-tools/arm-none-eabi-gcc-xpack/releases/download/v${VERSION}
+          curl --fail --location --retry 3 --connect-timeout 20 --max-time 450 \
+            -o /tmp/rockstar-arm.tar.gz "$BASE/$NAME"
+          tar -xzf /tmp/rockstar-arm.tar.gz -C /tmp
+          echo "/tmp/xpack-arm-none-eabi-gcc-${VERSION}/bin" >> "$GITHUB_PATH"
+          /tmp/xpack-arm-none-eabi-gcc-${VERSION}/bin/arm-none-eabi-gcc --version
+          /tmp/xpack-arm-none-eabi-gcc-${VERSION}/bin/arm-none-eabi-ld --version | head -n 1
+
+      - name: Verify host PNG build dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          pkg-config --modversion libpng
+          python3 --version
 
       - name: Compile Pokemon Emerald Expansion
         working-directory: ${{ steps.source.outputs.directory }}
