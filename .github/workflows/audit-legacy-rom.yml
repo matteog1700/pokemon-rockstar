@@ -1,0 +1,108 @@
+name: Audit legacy Rockstar ROM and recover source assets
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/audit-legacy-rom.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  audit-legacy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Retrieve November 11 Rockstar ROM artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p audit/old
+          gh run download 43094238248 --repo "$GITHUB_REPOSITORY" \
+             --name PoKeMoN-RoCkStAr-LilPeep-TooPoor-Choice-GBA \
+             --dir audit/old
+          test -s "audit/old/Pokemon Rockstar.gba"
+          sha256sum "audit/old/Pokemon Rockstar.gba" | tee audit/legacy-sha256.txt
+
+      - name: Inspect archived Emerald source for Rockstar integration
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p audit/source
+          gh api -H 'Accept: application/octet-stream' \
+              repos/"$GITHUB_REPOSITORY"/releases/assets/735997691 \
+              > audit/source.zip
+          python3 - <<'PY'
+          import zipfile, pathlib, re, hashlib
+          root=pathlib.Path("audit")
+          z=zipfile.ZipFile(root/"source.zip")
+          assert z.testzip() is None
+          allnames=z.namelist()
+          lines=[f"Archive entries: {len(allnames)}", f"Archive sha256: {hashlib.sha256((root/'source.zip').read_bytes()).hexdigest()}"]
+          keys=["rockstar","peep","toopoor","too_poor","ozzy","concert","intro","birch","title","gamefreak","game_freak","woods","petalburg","madness","bikini","overlay"]
+          for key in keys:
+              matches=[n for n in allnames if key in n.lower() and not n.endswith('/')]
+              lines.append(f"\n{key.upper()} ({len(matches)}):")
+              lines.extend(matches[:35])
+          statuses=[n for n in allnames if "INTEGRATION_STATUS" in n.upper() or "README" in pathlib.PurePosixPath(n).name.upper()]
+          for n in statuses[:8]:
+              if "STATUS" in n.upper():
+                  lines.append(f"\nSource status file: {n}")
+                  lines.append(z.read(n).decode("utf-8",errors="replace")[:6000])
+          (root/"source-manifest.txt").write_text("\n".join(lines), encoding="utf-8")
+          print("\n".join(lines)[:12000])
+          PY
+
+      - name: Install emulator and screenshot tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -o Acquire::Retries=3
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            mgba-sdl xvfb x11-apps imagemagick xdotool
+
+      - name: Examine legacy intro screen in emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          MGBA_BIN="$(dpkg -L mgba-sdl | grep -E '/(bin|games)/mgba$' | head -n 1)"
+          export MGBA_BIN SDL_AUDIODRIVER=dummy SDL_RENDER_DRIVER=software
+          xvfb-run -a -s "-screen 0 800x600x24" bash -euo pipefail <<'SH'
+          "$MGBA_BIN" "audit/old/Pokemon Rockstar.gba" > audit/mgba-legacy.log 2>&1 &
+          emu=$!
+          trap 'kill "$emu" 2>/dev/null || true' EXIT
+          for t in 4 8 12; do
+            sleep 4
+            kill -0 "$emu"
+            xwd -root -silent -out "audit/intro-${t}.xwd"
+          done
+          for i in $(seq 1 12); do
+            xdotool key --clearmodifiers Return || true
+            xdotool key --clearmodifiers x || true
+            sleep 2
+          done
+          kill -0 "$emu"
+          xwd -root -silent -out audit/post-input.xwd
+          SH
+          for frame in audit/*.xwd; do
+            convert "$frame" "${frame%.xwd}.png"
+          done
+          identify audit/*.png
+
+      - name: Upload legacy source and intro audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pokemon-Rockstar-Legacy-Source-Intro-Audit
+          path: |
+            audit/source-manifest.txt
+            audit/legacy-sha256.txt
+            audit/mgba-legacy.log
+            audit/*.png
+          if-no-files-found: warn
+          retention-days: 7
