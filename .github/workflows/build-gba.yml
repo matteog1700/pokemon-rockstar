@@ -60,6 +60,7 @@ jobs:
         id: source
         env:
           GH_TOKEN: ${{ secrets.ROCKSTAR_SOURCE_TOKEN || github.token }}
+          SOURCE_TOKEN_PRESENT: ${{ secrets.ROCKSTAR_SOURCE_TOKEN != '' }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         shell: bash
         run: |
@@ -71,6 +72,11 @@ jobs:
           else
             mkdir -p .source-archive .source-extracted
             echo "No checked-in Emerald source found. Looking for the source ZIP on a GitHub Release."
+            if [[ "$SOURCE_TOKEN_PRESENT" == "true" ]]; then
+              echo "Dedicated source-access token: configured"
+            else
+              echo "::warning::ROCKSTAR_SOURCE_TOKEN is not configured; the default Actions token may not see draft release assets."
+            fi
             # The source archive currently lives on a draft GitHub Release.
             # Query release assets via the authenticated API, including drafts,
             # instead of guessing a published tag or a stale filename.
@@ -87,7 +93,10 @@ jobs:
           )
           found = [(r.get("created_at", ""), a["id"], a["name"]) for r in releases for a in r.get("assets", []) if a["name"] in preferences]
           if not found:
-              sys.exit("Emerald source ZIP not visible to this token. Draft releases may require a personal access token with repository Contents: Read permission saved as ROCKSTAR_SOURCE_TOKEN, or upload source into game/. Do not publish private source just to fix this.")
+              print(f"Releases visible to build token: {len(releases)}")
+              print("Published releases: " + str(sum(not r.get("draft", False) for r in releases)))
+              print("Draft releases: " + str(sum(bool(r.get("draft")) for r in releases)))
+              sys.exit("Emerald source ZIP not visible to this token. Verify ROCKSTAR_SOURCE_TOKEN has repository Contents: Read access to draft releases; do not publish the archive as a workaround.")
           found.sort(key=lambda x: (preferences.index(x[2]), x[0]), reverse=False)
           _, asset_id, name = found[0]
           os.makedirs(".source-archive", exist_ok=True)
