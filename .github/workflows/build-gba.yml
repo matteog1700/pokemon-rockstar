@@ -239,10 +239,28 @@ jobs:
           PY
           sha256sum pokeemerald.gba
 
-      - name: Upload compiled GBA (only on success)
+      - name: Report incomplete Rockstar integration in source snapshot
+        working-directory: ${{ steps.source.outputs.directory }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## Baseline build — not the finished Pokémon Rockstar game"
+            echo
+            echo "The archived Emerald source snapshot does not contain verified concert intro graphics, custom town integration, or completed story and sprite replacements."
+            echo "This build verifies compiler and basic source mechanics only; do not advertise it as the finished Rockstar ROM."
+            if [[ -f ROCKSTAR_INTEGRATION_STATUS.txt ]]; then
+              echo
+              echo "### Archived source integration notes"
+              cat ROCKSTAR_INTEGRATION_STATUS.txt
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning::Incomplete Rockstar source snapshot: the custom concert intro and other requested features are not verified in this ROM."
+
+      - name: Upload baseline Emerald ROM (NOT finished Rockstar)
         uses: actions/upload-artifact@v4
         with:
-          name: Pokemon-Rockstar-GBA
+          name: Emerald-Expansion-Baseline-NOT-FINAL
           path: ${{ steps.source.outputs.directory }}/pokeemerald.gba
           if-no-files-found: error
           retention-days: 7
