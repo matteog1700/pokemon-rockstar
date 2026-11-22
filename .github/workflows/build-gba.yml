@@ -59,7 +59,7 @@ jobs:
       - name: Locate or download game source
         id: source
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.ROCKSTAR_SOURCE_TOKEN || github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         shell: bash
         run: |
@@ -79,13 +79,15 @@ jobs:
           repo = os.environ["GITHUB_REPOSITORY"]
           result = subprocess.check_output(["gh", "api", "--paginate", f"repos/{repo}/releases?per_page=100"], text=True)
           releases = json.loads(result)
+          if not isinstance(releases, list):
+              sys.exit("Release API did not return a list; check token access")
           preferences = (
               "Pokemon_Rockstar_Source_Character_Intro_Patched.zip",
               "Pokemon_Rockstar_Source_REUPLOAD_2026-11-11.zip",
           )
           found = [(r.get("created_at", ""), a["id"], a["name"]) for r in releases for a in r.get("assets", []) if a["name"] in preferences]
           if not found:
-              sys.exit("No Emerald source ZIP found on any visible release (including drafts)")
+              sys.exit("Emerald source ZIP not visible to this token. Draft releases may require a personal access token with repository Contents: Read permission saved as ROCKSTAR_SOURCE_TOKEN, or upload source into game/. Do not publish private source just to fix this.")
           found.sort(key=lambda x: (preferences.index(x[2]), x[0]), reverse=False)
           _, asset_id, name = found[0]
           os.makedirs(".source-archive", exist_ok=True)
