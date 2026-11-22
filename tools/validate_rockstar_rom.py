@@ -37,7 +37,22 @@ def validate(rom: bytes) -> list[str]:
         if offset == -1:
             errors.append(f"Missing Nov 22 Rockstar marker: {title}")
         else:
-            print(f"PASS {title}: offset 0x{offset:08X}")
+            # A substring alone could be stray or unused dialogue. Locate its
+            # containing Gen III text block and require a GBA ROM pointer to it.
+            previous_end = rom.rfind(b"\\xff", max(0, offset - 768), offset)
+            start = previous_end + 1
+            if previous_end < 0:
+                errors.append(f"No terminating delimiter before {title}")
+                continue
+            pointer = (0x08000000 + start).to_bytes(4, "little")
+            references = rom.count(pointer)
+            if references == 0:
+                errors.append(f"Unreferenced Rockstar dialogue block: {title}")
+            else:
+                print(
+                    f"PASS {title}: text 0x{offset:08X}, "
+                    f"block 0x{start:08X}, pointers {references}"
+                )
     return errors
 
 if __name__ == "__main__":
