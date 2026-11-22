@@ -42,7 +42,6 @@ jobs:
           retention-days: 3
 
   build:
-    if: github.event_name != 'push'
     needs: verify-compiler
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -72,22 +71,37 @@ jobs:
           else
             mkdir -p .source-archive .source-extracted
             echo "No checked-in Emerald source found. Looking for the source ZIP on a GitHub Release."
-            if [[ -n "$RELEASE_TAG" ]]; then
-              gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern 'Pokemon_Rockstar_Source_Character_Intro_Patched.zip' --dir .source-archive || {
-                echo "::error::Attach Pokemon_Rockstar_Source_Character_Intro_Patched.zip to this release before publishing it."
-                exit 1
-              }
-            else
-              gh release download --repo "$GITHUB_REPOSITORY" --pattern 'Pokemon_Rockstar_Source_Character_Intro_Patched.zip' --dir .source-archive || {
-                echo "::error::No release source archive found. Create a GitHub Release and attach Pokemon_Rockstar_Source_Character_Intro_Patched.zip."
-                exit 1
-              }
-            fi
+            # The source archive currently lives on a draft GitHub Release.
+            # Query release assets via the authenticated API, including drafts,
+            # instead of guessing a published tag or a stale filename.
+            python3 - <<'PY'
+          import json, os, subprocess, sys
+          repo = os.environ["GITHUB_REPOSITORY"]
+          result = subprocess.check_output(["gh", "api", "--paginate", f"repos/{repo}/releases?per_page=100"], text=True)
+          releases = json.loads(result)
+          preferences = (
+              "Pokemon_Rockstar_Source_Character_Intro_Patched.zip",
+              "Pokemon_Rockstar_Source_REUPLOAD_2026-11-11.zip",
+          )
+          found = [(r.get("created_at", ""), a["id"], a["name"]) for r in releases for a in r.get("assets", []) if a["name"] in preferences]
+          if not found:
+              sys.exit("No Emerald source ZIP found on any visible release (including drafts)")
+          found.sort(key=lambda x: (preferences.index(x[2]), x[0]), reverse=False)
+          _, asset_id, name = found[0]
+          os.makedirs(".source-archive", exist_ok=True)
+          print(f"Downloading verified release asset {name} (id={asset_id})")
+          with open(".source-archive/source.zip", "wb") as out:
+              subprocess.run(["gh", "api", "-H", "Accept: application/octet-stream", f"repos/{repo}/releases/assets/{asset_id}"], stdout=out, check=True)
+          import zipfile
+          with zipfile.ZipFile(".source-archive/source.zip") as z:
+              bad = z.testzip()
+              if bad: sys.exit(f"ZIP failed CRC validation: {bad}")
+          PY
             python3 - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
 
-          source = Path(".source-archive/Pokemon_Rockstar_Source_Character_Intro_Patched.zip")
+          source = Path(".source-archive/source.zip")
           with ZipFile(source) as archive:
               for entry in archive.infolist():
                   path = Path(entry.filename)
