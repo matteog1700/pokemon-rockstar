@@ -199,10 +199,14 @@ jobs:
           /tmp/xpack-arm-none-eabi-gcc-${VERSION}/bin/arm-none-eabi-gcc --version
           /tmp/xpack-arm-none-eabi-gcc-${VERSION}/bin/arm-none-eabi-ld --version | head -n 1
 
-      - name: Verify host PNG build dependency
+      - name: Install and verify host PNG build dependency
         shell: bash
         run: |
           set -euo pipefail
+          if ! pkg-config --exists libpng; then
+            sudo apt-get update -o Acquire::Retries=3
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libpng-dev zlib1g-dev pkg-config
+          fi
           pkg-config --modversion libpng
           python3 --version
 
