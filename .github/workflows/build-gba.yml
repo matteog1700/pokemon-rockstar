@@ -248,6 +248,21 @@ jobs:
           set -euo pipefail
           python3 "$GITHUB_WORKSPACE/tools/validate_rockstar_rom.py" pokeemerald.gba
 
+      - name: Audit compiled ROM for Rockstar content markers
+        working-directory: ${{ steps.source.outputs.directory }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "## Rockstar content marker validation" >> "$GITHUB_STEP_SUMMARY"
+          if python3 "$GITHUB_WORKSPACE/tools/validate_rockstar_rom.py" pokeemerald.gba > /tmp/rockstar-marker-audit.log 2>&1; then
+            cat /tmp/rockstar-marker-audit.log
+            echo "Encoded text markers detected. This is not proof of gameplay or visuals." >> "$GITHUB_STEP_SUMMARY"
+          else
+            cat /tmp/rockstar-marker-audit.log
+            echo "::warning::Compiled baseline does not pass Rockstar content validation; do not distribute as finished."
+            echo "Compiled baseline failed Rockstar content marker validation; it is NOT a finished Rockstar ROM." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Report incomplete Rockstar integration in source snapshot
         working-directory: ${{ steps.source.outputs.directory }}
         shell: bash
