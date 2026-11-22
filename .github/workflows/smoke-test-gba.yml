@@ -83,11 +83,26 @@ jobs:
             fi
           done
           xwd -root -silent -out smoke/after-start.xwd
-          echo "mGBA stayed running after 50 seconds of repeated Start/A input."
+          echo "mGBA stayed running after 50 seconds of repeated Start input."
+          # mGBA's default keyboard A button is X, while Z is B.
+          # Advance into New Game / intro and capture milestone frames.
+          for milestone in 1 2 3; do
+            for i in $(seq 1 12); do
+              xdotool key --clearmodifiers x || true
+              sleep 1
+            done
+            xwd -root -silent -out "smoke/new-game-${milestone}.xwd"
+            if ! kill -0 "$emulator_pid" 2>/dev/null; then
+              echo "::error::mGBA exited during New Game advancement"
+              exit 1
+            fi
+          done
+          echo "mGBA stayed running through another 36 seconds of A-button input."
           SH
           convert smoke/boot.xwd smoke/boot.png
           convert smoke/after-start.xwd smoke/after-start.png
-          identify smoke/boot.png smoke/after-start.png
+          for frame in smoke/new-game-*.xwd; do convert "$frame" "${frame%.xwd}.png"; done
+          identify smoke/boot.png smoke/after-start.png smoke/new-game-*.png
           echo "WARNING: boot smoke test is not comprehensive forest/warp/gameplay testing."
 
       - name: Upload emulator screenshots and log
@@ -97,6 +112,7 @@ jobs:
           name: Pokemon-Rockstar-mGBA-smoke-evidence
           path: |
             smoke/*.png
-            smoke/mgba.log\n            smoke/windows.txt
+            smoke/mgba.log
+            smoke/windows.txt
           if-no-files-found: warn
           retention-days: 7
