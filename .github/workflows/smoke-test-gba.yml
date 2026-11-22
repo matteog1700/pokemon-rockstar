@@ -1,0 +1,94 @@
+name: Smoke test compiled Pokemon Rockstar GBA in mGBA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/smoke-test-gba.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  mgba-smoke-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SOURCE_RUN_ID: '45031215243'
+      EXPECTED_SHA256: '4374d74801a9369333a2be0393d11468cdfe031745579ce3303acb133af01401'
+    steps:
+      - name: Download exact verified compiled GBA artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p smoke
+          gh run download "$SOURCE_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name Pokemon-Rockstar-GBA \
+            --dir smoke
+          test -s smoke/pokeemerald.gba
+          echo "$EXPECTED_SHA256  smoke/pokeemerald.gba" | sha256sum --check
+          file smoke/pokeemerald.gba
+          ls -lh smoke/pokeemerald.gba
+
+      - name: Install mGBA emulator and virtual screen tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -o Acquire::Retries=3
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            mgba-sdl xvfb x11-apps imagemagick xdotool
+          dpkg -l mgba-sdl | tail -n 1
+          dpkg -L mgba-sdl | grep -E '/(bin|games)/mgba$'
+
+      - name: Boot ROM in mGBA and capture visible frames
+        shell: bash
+        run: |
+          set -euo pipefail
+          MGBA_BIN="$(dpkg -L mgba-sdl | grep -E '/(bin|games)/mgba$' | head -n 1)"
+          test -x "$MGBA_BIN"
+          echo "Using mGBA: $MGBA_BIN"
+          export MGBA_BIN
+          export SDL_AUDIODRIVER=dummy
+          export SDL_RENDER_DRIVER=software
+          xvfb-run -a -s "-screen 0 800x600x24" bash -euo pipefail <<'SH'
+          "$MGBA_BIN" smoke/pokeemerald.gba > smoke/mgba.log 2>&1 &
+          emulator_pid=$!
+          trap 'kill "$emulator_pid" 2>/dev/null || true' EXIT
+          sleep 15
+          if ! kill -0 "$emulator_pid" 2>/dev/null; then
+            cat smoke/mgba.log
+            echo "::error::mGBA exited before title-screen smoke test"
+            exit 1
+          fi
+          xwd -root -silent -out smoke/boot.xwd
+          # Attempt to advance the title screen without claiming full-game testing.
+          xdotool key --clearmodifiers Return || true
+          sleep 8
+          if ! kill -0 "$emulator_pid" 2>/dev/null; then
+            cat smoke/mgba.log
+            echo "::error::mGBA exited during input smoke test"
+            exit 1
+          fi
+          xwd -root -silent -out smoke/after-start.xwd
+          echo "mGBA stayed running through boot and basic input checks."
+          SH
+          convert smoke/boot.xwd smoke/boot.png
+          convert smoke/after-start.xwd smoke/after-start.png
+          identify smoke/boot.png smoke/after-start.png
+          echo "WARNING: boot smoke test is not comprehensive forest/warp/gameplay testing."
+
+      - name: Upload emulator screenshots and log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pokemon-Rockstar-mGBA-smoke-evidence
+          path: |
+            smoke/*.png
+            smoke/mgba.log
+          if-no-files-found: warn
+          retention-days: 7
