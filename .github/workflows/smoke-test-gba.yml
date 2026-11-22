@@ -66,16 +66,24 @@ jobs:
             exit 1
           fi
           xwd -root -silent -out smoke/boot.xwd
-          # Attempt to advance the title screen without claiming full-game testing.
-          xdotool key --clearmodifiers Return || true
-          sleep 8
-          if ! kill -0 "$emulator_pid" 2>/dev/null; then
-            cat smoke/mgba.log
-            echo "::error::mGBA exited during input smoke test"
-            exit 1
+          # Focus the SDL emulator window and advance through splash/title scenes.
+          xdotool search --onlyvisible --name '.' > smoke/windows.txt || true
+          window_id="$(head -n 1 smoke/windows.txt || true)"
+          if [[ -n "$window_id" ]]; then
+            xdotool windowfocus "$window_id" || true
           fi
+          for i in $(seq 1 10); do
+            xdotool key --clearmodifiers Return || true
+            xdotool key --clearmodifiers z || true
+            sleep 5
+            if ! kill -0 "$emulator_pid" 2>/dev/null; then
+              cat smoke/mgba.log
+              echo "::error::mGBA exited during extended input test"
+              exit 1
+            fi
+          done
           xwd -root -silent -out smoke/after-start.xwd
-          echo "mGBA stayed running through boot and basic input checks."
+          echo "mGBA stayed running after 50 seconds of repeated Start/A input."
           SH
           convert smoke/boot.xwd smoke/boot.png
           convert smoke/after-start.xwd smoke/after-start.png
@@ -89,6 +97,6 @@ jobs:
           name: Pokemon-Rockstar-mGBA-smoke-evidence
           path: |
             smoke/*.png
-            smoke/mgba.log
+            smoke/mgba.log\n            smoke/windows.txt
           if-no-files-found: warn
           retention-days: 7
