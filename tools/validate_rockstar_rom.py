@@ -39,7 +39,7 @@ def validate(rom: bytes) -> list[str]:
         else:
             # A substring alone could be stray or unused dialogue. Locate its
             # containing Gen III text block and require a GBA ROM pointer to it.
-            previous_end = rom.rfind(b"\\xff", max(0, offset - 768), offset)
+            previous_end = rom.rfind(bytes([0xFF]), max(0, offset - 768), offset)
             start = previous_end + 1
             if previous_end < 0:
                 errors.append(f"No terminating delimiter before {title}")
