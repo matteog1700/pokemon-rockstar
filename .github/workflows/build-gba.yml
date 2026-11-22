@@ -239,6 +239,15 @@ jobs:
           PY
           sha256sum pokeemerald.gba
 
+      - name: Verify actual November 22 Rockstar content before release
+        id: rockstar_content
+        continue-on-error: true
+        working-directory: ${{ steps.source.outputs.directory }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/tools/validate_rockstar_rom.py" pokeemerald.gba
+
       - name: Report incomplete Rockstar integration in source snapshot
         working-directory: ${{ steps.source.outputs.directory }}
         shell: bash
