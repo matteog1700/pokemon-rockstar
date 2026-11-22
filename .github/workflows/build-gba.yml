@@ -43,6 +43,8 @@ jobs:
 
   build:
     needs: verify-compiler
+    permissions:
+      contents: write # GitHub draft releases require write-level access to be visible
     runs-on: ubuntu-24.04
     timeout-minutes: 40
 
